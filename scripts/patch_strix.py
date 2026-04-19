@@ -145,6 +145,21 @@ if _os.path.isdir(_jit_cache) and _jit_cache not in __path__:
         if fa_iface.exists():
             _patch_flash_interface(fa_iface)
 
+    # Patch 9: Allow Triton MoE kernels on gfx11xx (Strix Halo)
+    # vLLM recently capped MXFP4 Triton MoE kernels to < (11, 0) which excludes RDNA3 (11.x)
+    for p_triton in [
+        Path('vllm/model_executor/layers/fused_moe/experts/gpt_oss_triton_kernels_moe.py'),
+        Path('vllm/model_executor/layers/fused_moe/oracle/mxfp4.py')
+    ]:
+        if p_triton.exists():
+            txt = p_triton.read_text()
+            if "cap.minor) < (11, 0)" in txt:
+                txt = txt.replace("cap.minor) < (11, 0)", "cap.minor) < (12, 0)")
+            if "capability() < (11, 0)" in txt:
+                txt = txt.replace("capability() < (11, 0)", "capability() < (12, 0)")
+            p_triton.write_text(txt)
+            print(f" -> Patched {p_triton} (Triton MoE on gfx11xx)")
+
     print("Successfully patched vLLM/Environment for Strix Halo.")
 
 if __name__ == "__main__":
