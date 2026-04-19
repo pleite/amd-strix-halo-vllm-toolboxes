@@ -41,7 +41,7 @@ print("Found wheels:")
 for u in urls:
     print(f" - {u}")
 
-print("Installing PyTorch wheels via pip...")
+print("Installing PyTorch Core, Audio, and Vision via matched AMD pip...")
 subprocess.check_call([
     sys.executable, "-m", "pip", "install", 
     "--index-url", f"{base_url}/", "--pre",
