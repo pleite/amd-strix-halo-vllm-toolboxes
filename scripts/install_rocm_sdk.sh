@@ -15,17 +15,10 @@ BASE="https://therock-nightly-tarball.s3.amazonaws.com"
 PREFIX="therock-dist-linux-${GFX}-${ROCM_MAJOR_VER}"
 
 # Fetch the Key
-if [ -z "${ROCM_NIGHTLY_DATE:-}" ]; then
-    KEY="$(curl -s "${BASE}?list-type=2&prefix=${PREFIX}" \
-      | tr '<' '\n' \
-      | grep -o "therock-dist-linux-${GFX}-${ROCM_MAJOR_VER}\..*\.tar\.gz" \
-      | sort -V | tail -n1)"
-else
-    KEY="$(curl -s "${BASE}?list-type=2&prefix=${PREFIX}" \
-      | tr '<' '\n' \
-      | grep -o "therock-dist-linux-${GFX}-${ROCM_MAJOR_VER}\..*a${ROCM_NIGHTLY_DATE}\.tar\.gz" \
-      | sort -V | tail -n1)"
-fi
+KEY="$(curl -s "${BASE}?list-type=2&prefix=${PREFIX}" \
+  | tr '<' '\n' \
+  | grep -o "therock-dist-linux-${GFX}-${ROCM_MAJOR_VER}\..*\.tar\.gz" \
+  | sort -V | tail -n1)"
 
 if [ -z "$KEY" ]; then
     echo "Error: Could not find tarball key for $PREFIX"

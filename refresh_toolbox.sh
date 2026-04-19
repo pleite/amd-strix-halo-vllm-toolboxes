@@ -3,8 +3,7 @@
 set -e
 
 TOOLBOX_NAME="vllm"
-TAG="${1:-latest}"
-IMAGE="docker.io/kyuz0/vllm-therock-gfx1151:${TAG}"
+IMAGE="docker.io/kyuz0/vllm-therock-gfx1151:latest"
 
 # Base options
 OPTIONS="--device /dev/dri --device /dev/kfd --group-add video --group-add render --security-opt seccomp=unconfined"

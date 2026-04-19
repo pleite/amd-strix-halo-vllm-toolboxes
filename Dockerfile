@@ -11,12 +11,10 @@ ARG ROCM_MAJOR_VER=7
 ARG GFX=gfx1151
 # We pass ARGs to the script via ENV or rely on defaults. 
 # But let's be explicit and export them for the RUN command.
-ARG ROCM_NIGHTLY_DATE=""
 COPY scripts/install_rocm_sdk.sh /tmp/install_rocm_sdk.sh
 RUN chmod +x /tmp/install_rocm_sdk.sh && \
   export ROCM_MAJOR_VER=$ROCM_MAJOR_VER && \
   export GFX=$GFX && \
-  export ROCM_NIGHTLY_DATE=$ROCM_NIGHTLY_DATE && \
   /tmp/install_rocm_sdk.sh
 
 # 4. Python Venv Setup
@@ -28,8 +26,9 @@ RUN printf 'source /opt/venv/bin/activate\n' > /etc/profile.d/venv.sh
 RUN python -m pip install --upgrade pip wheel packaging "setuptools<80.0.0"
 
 # 5. Install PyTorch (TheRock Nightly)
-COPY scripts/install_pytorch_nightly.py /tmp/install_pytorch_nightly.py
-RUN python /tmp/install_pytorch_nightly.py
+RUN python -m pip install \
+  --index-url https://rocm.nightlies.amd.com/v2-staging/gfx1151/ \
+  --pre torch torchaudio torchvision
 
 WORKDIR /opt
 
@@ -59,10 +58,15 @@ RUN git clone https://github.com/ROCm/flash-attention.git && \
 # Fix Fedora lib vs lib64 split: setup.py install writes to lib/, pip to lib64/.
 # flash-attention's find_packages() may install a partial aiter copy into lib/.
 # Merge any straggler files from lib/ into lib64/ so Python finds everything.
-RUN if [ -d /opt/venv/lib/python3.12/site-packages/aiter ]; then \
-      cp -rn /opt/venv/lib/python3.12/site-packages/aiter/* \
-             /opt/venv/lib64/python3.12/site-packages/aiter/ 2>/dev/null || true; \
-      rm -rf /opt/venv/lib/python3.12/site-packages/aiter; \
+# When lib64 is a symlink to lib (Fedora's default venv layout), the two
+# site-packages dirs resolve to the same path — skip the merge, since the
+# cp-into-self then rm-rf would delete the entire aiter package.
+RUN lib_sp=/opt/venv/lib/python3.12/site-packages; \
+    lib64_sp=/opt/venv/lib64/python3.12/site-packages; \
+    if [ "$(readlink -f "$lib_sp")" != "$(readlink -f "$lib64_sp")" ] && \
+       [ -d "$lib_sp/aiter" ]; then \
+      cp -rn "$lib_sp/aiter/"* "$lib64_sp/aiter/" 2>/dev/null || true; \
+      rm -rf "$lib_sp/aiter"; \
     fi
 
 # 6. Clone vLLM
