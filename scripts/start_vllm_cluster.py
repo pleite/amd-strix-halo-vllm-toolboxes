@@ -297,6 +297,8 @@ def configure_and_launch_vllm(model_idx, head_ip):
     else:
         cmd.extend(["--attention-backend", "TRITON_ATTN"])
 
+    cmd.extend(["--mm-encoder-attn-backend", "TRITON_ATTN"])
+
     if "Qwen3" in model_id:
         cmd.extend(["--reasoning-parser", "qwen3"])
             

@@ -115,7 +115,7 @@ def patch_vllm():
         if "if is_aiter_found_and_supported():\n            custom_ops.append(\"+rms_norm\")" in txt:
             txt = txt.replace(
                 "if is_aiter_found_and_supported():\n            custom_ops.append(\"+rms_norm\")",
-                "if is_aiter_found_and_supported() and not self.on_gfx1x():\n            custom_ops.append(\"+rms_norm\")"
+                "if is_aiter_found_and_supported() and not getattr(self, 'on_gfx1x', lambda: False)():\n            custom_ops.append(\"+rms_norm\")"
             )
         
         # Modern vLLM 0.19+ struct (compilation_config.custom_ops)
@@ -127,8 +127,15 @@ def patch_vllm():
                     txt
                 )
                 
+        # Modern vLLM 0.19.2rc1+ IrOpPriorityConfig bypass
+        if 'rms_norm = ["aiter"] + default' in txt:
+            txt = txt.replace(
+                'rms_norm = ["aiter"] + default',
+                'rms_norm = ["aiter"] + default if not on_gfx1x() else default'
+            )
+            
         p_rocm.write_text(txt)
-        print(" -> Patched vllm/platforms/rocm.py (custom_ops rms_norm bypassed on gfx1x)")
+        print(" -> Patched vllm/platforms/rocm.py (custom_ops & IrOpPriorityConfig rms_norm bypassed on gfx1x)")
 
     # Patch 6: vllm/compilation/passes/fusion/rocm_aiter_fusion.py (duplicate pattern bypass)
     p_fusion = Path('vllm/compilation/passes/fusion/rocm_aiter_fusion.py')

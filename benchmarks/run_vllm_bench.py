@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import subprocess, time, json, sys, os, requests, argparse
+import subprocess, time, json, sys, os, requests, argparse, shutil
 from pathlib import Path
 
 try:
@@ -39,8 +39,8 @@ DEFAULT_BATCH_TOKENS = models.DEFAULT_BATCH_TOKENS
 FALLBACK_INPUT_LEN  = 1024
 FALLBACK_OUTPUT_LEN = 512
 
-RESULTS_DIR = Path("benchmark_results")
-RESULTS_DIR.mkdir(exist_ok=True)
+RESULTS_DIR = Path("~/vllm_benchmark_results").expanduser()
+RESULTS_DIR.mkdir(exist_ok=True, parents=True)
 
 
 # =========================
@@ -100,8 +100,8 @@ def get_model_args(model, tp_size, overrides=None):
     overrides = overrides or {}
     
     # Allow per-model GPU utilization override
-    util = overrides.get("gpu_util", GPU_UTIL)
-    max_seq_override = overrides.get("max_num_seqs", "16")
+    util = overrides.get("gpu_util", config.get("gpu_util", GPU_UTIL))
+    max_seq_override = overrides.get("max_num_seqs", config.get("max_num_seqs", "32"))
 
     cmd = [
         "--model", model,
@@ -139,13 +139,14 @@ def run_throughput(model, tp_size, backend_name="Default", output_dir=RESULTS_DI
     dataset_args = ["--dataset-name", "sharegpt", "--dataset-path", dataset_path] if dataset_path else ["--input-len", "1024"]
     
     # Retrieve Model-Specific Batch Tokens
-    batch_tokens = str(overrides.get("max_tokens", DEFAULT_BATCH_TOKENS))
+    batch_tokens = str(overrides.get("max_tokens", MODEL_TABLE[model].get("max_tokens", DEFAULT_BATCH_TOKENS)))
 
     log(f"START {model} (TP={tp_size} | {backend_name}) [Batch: {batch_tokens}]...")
     kill_vllm()
     nuke_vllm_cache()
 
-    cmd = ["vllm", "bench", "throughput"] + get_model_args(model, tp_size, overrides)
+    vllm_path = shutil.which("vllm") or "vllm"
+    cmd = ["python", "-W", "ignore", vllm_path, "bench", "throughput"] + get_model_args(model, tp_size, overrides)
     cmd.extend([
         "--num-prompts", str(OFF_NUM_PROMPTS),
         "--max-num-batched-tokens", batch_tokens,
@@ -155,9 +156,15 @@ def run_throughput(model, tp_size, backend_name="Default", output_dir=RESULTS_DI
     ])
     cmd.extend(dataset_args)
 
-    # Force Attention Backend via CLI if needed
-    if backend_name == "ROCm-Attn" or backend_name == "AITER-Attn":
+    # Explicitly set Attention Backend for every run
+    if backend_name == "AITER-Attn":
         cmd.extend(["--attention-backend", "ROCM_ATTN"])
+    elif backend_name == "ROCm-Attn":
+        cmd.extend(["--attention-backend", "ROCM_ATTN"])
+    else:
+        cmd.extend(["--attention-backend", "TRITON_ATTN"])
+
+    cmd.extend(["--mm-encoder-attn-backend", "TRITON_ATTN"])
 
     # ENV Setup: Global + Model Specific
     env = os.environ.copy()
@@ -196,12 +203,12 @@ def print_summary(tps):
                 tag = name_part.lstrip("_")
                 tags.add(tag)
                 
-            for p in Path("benchmark_results_rocm").glob(f"{prefix}*_throughput.json"):
+            for p in (RESULTS_DIR / "benchmark_results_rocm").glob(f"{prefix}*_throughput.json"):
                 name_part = p.name[len(prefix):-len("_throughput.json")]
                 tag = name_part.lstrip("_")
                 tags.add(tag)
                 
-            for p in Path("benchmark_results_aiter").glob(f"{prefix}*_throughput.json"):
+            for p in (RESULTS_DIR / "benchmark_results_aiter").glob(f"{prefix}*_throughput.json"):
                 name_part = p.name[len(prefix):-len("_throughput.json")]
                 tag = name_part.lstrip("_")
                 tags.add(tag)
@@ -224,7 +231,7 @@ def print_summary(tps):
                 
                 # ROCm
                 try:
-                    p2 = Path("benchmark_results_rocm") / f"{prefix}{tag_suffix}_throughput.json"
+                    p2 = (RESULTS_DIR / "benchmark_results_rocm") / f"{prefix}{tag_suffix}_throughput.json"
                     if p2.exists():
                         d2 = json.loads(p2.read_text())
                         val2 = f"{d2.get('tokens_per_second', 0):.1f}"
@@ -234,7 +241,7 @@ def print_summary(tps):
 
                 # AITER
                 try:
-                    p3 = Path("benchmark_results_aiter") / f"{prefix}{tag_suffix}_throughput.json"
+                    p3 = (RESULTS_DIR / "benchmark_results_aiter") / f"{prefix}{tag_suffix}_throughput.json"
                     if p3.exists():
                         d3 = json.loads(p3.read_text())
                         val3 = f"{d3.get('tokens_per_second', 0):.1f}"
@@ -298,10 +305,10 @@ if __name__ == "__main__":
             overrides = {}
             if args.tui:
                 config = MODEL_TABLE.get(m, {})
-                default_seqs = "16"
-                default_tokens = DEFAULT_BATCH_TOKENS
-                default_util = GPU_UTIL
-                default_ctx = "auto"
+                default_seqs = config.get("max_num_seqs", "32")
+                default_tokens = config.get("max_tokens", DEFAULT_BATCH_TOKENS)
+                default_util = config.get("gpu_util", GPU_UTIL)
+                default_ctx = config.get("ctx", "auto")
                 
                 form_args = [
                     "--clear", "--backtitle", f"AMD vLLM Benchmark Configuration (TP: {tp})",
@@ -333,19 +340,19 @@ if __name__ == "__main__":
                         
                     overrides["tag"] = lines[4].strip()
             
-            # 1. Default (Triton)
-            run_throughput(m, tp, "Default", RESULTS_DIR, overrides=overrides)
+            # 1. Triton Attention (explicit)
+            run_throughput(m, tp, "Triton-Attn", RESULTS_DIR, overrides=overrides)
             
             # 2. ROCm Attention 
             # We force this via CLI argument --attention-backend ROCM_ATTN below
             # No specific env vars needed if forcing backend.
             rocm_env = {}
             print(f"[DEBUG] Forcing ROCm Env: {rocm_env} + CLI: --attention-backend ROCM_ATTN")
-            run_throughput(m, tp, "ROCm-Attn", "benchmark_results_rocm", rocm_env, overrides=overrides)
+            run_throughput(m, tp, "ROCm-Attn", RESULTS_DIR / "benchmark_results_rocm", rocm_env, overrides=overrides)
             
             # 3. AITER Attention
             aiter_env = {"VLLM_ROCM_USE_AITER": "1"}
             print(f"[DEBUG] Forcing AITER Env: {aiter_env} + CLI: --attention-backend ROCM_ATTN")
-            run_throughput(m, tp, "AITER-Attn", "benchmark_results_aiter", aiter_env, overrides=overrides)
+            run_throughput(m, tp, "AITER-Attn", RESULTS_DIR / "benchmark_results_aiter", aiter_env, overrides=overrides)
             
     print_summary(valid_tp_args)

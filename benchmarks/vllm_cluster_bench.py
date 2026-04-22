@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import subprocess, time, json, sys, os, requests, argparse, re
+import subprocess, time, json, sys, os, requests, argparse, re, shutil
 from pathlib import Path
 
 try:
@@ -37,8 +37,8 @@ OFF_NUM_PROMPTS      = models.OFF_NUM_PROMPTS
 OFF_FORCED_OUTPUT    = models.OFF_FORCED_OUTPUT
 DEFAULT_BATCH_TOKENS = models.DEFAULT_BATCH_TOKENS
 
-RESULTS_DIR = Path("benchmark_results")
-RESULTS_DIR.mkdir(exist_ok=True)
+RESULTS_DIR = Path("~/vllm_benchmark_results").expanduser()
+RESULTS_DIR.mkdir(exist_ok=True, parents=True)
 
 # Reuse the model table from the main benchmark script
 # We can just import it or copy it. Importing is cleaner but might rely on path.
@@ -216,7 +216,8 @@ def run_bench_set(model, backend_name, output_dir, extra_env=None, overrides=Non
     
     nuke_vllm_cache()
 
-    cmd = ["vllm", "bench", "throughput"] + get_model_args(model, overrides)
+    vllm_path = shutil.which("vllm") or "vllm"
+    cmd = ["python", "-W", "ignore", vllm_path, "bench", "throughput"] + get_model_args(model, overrides)
     cmd.extend([
         "--num-prompts", str(OFF_NUM_PROMPTS),
         "--max-num-batched-tokens", batch_tokens,
@@ -226,8 +227,15 @@ def run_bench_set(model, backend_name, output_dir, extra_env=None, overrides=Non
     ])
     cmd.extend(dataset_args)
 
-    if backend_name == "ROCm-Attn" or backend_name == "AITER-Attn":
+    # Explicitly set Attention Backend for every run
+    if backend_name == "AITER-Attn":
         cmd.extend(["--attention-backend", "ROCM_ATTN"])
+    elif backend_name == "ROCm-Attn":
+        cmd.extend(["--attention-backend", "ROCM_ATTN"])
+    else:
+        cmd.extend(["--attention-backend", "TRITON_ATTN"])
+
+    cmd.extend(["--mm-encoder-attn-backend", "TRITON_ATTN"])
 
     env = get_cluster_env()
     
@@ -251,40 +259,40 @@ def run_cluster_throughput(model, overrides=None):
     overrides = overrides or {}
     tag = overrides.get("tag", "").strip()
     
-    # 1. Default Run (Triton)
+    # 1. Triton Attention (explicit)
     if get_benchmark_output_file(model, RESULTS_DIR, tag).exists():
-        log(f"SKIP {model} [Default] (Result exists)")
+        log(f"SKIP {model} [Triton-Attn] (Result exists)")
     else:
         restart_cluster()
         run_bench_set(
             model, 
-            "Default", 
+            "Triton-Attn", 
             RESULTS_DIR,
             overrides=overrides
         )
     
     # 2. ROCm Attention Run
-    if get_benchmark_output_file(model, "benchmark_results_rocm", tag).exists():
+    if get_benchmark_output_file(model, RESULTS_DIR / "benchmark_results_rocm", tag).exists():
         log(f"SKIP {model} [ROCm-Attn] (Result exists)")
     else:
         restart_cluster()
         run_bench_set(
             model,
             "ROCm-Attn",
-            "benchmark_results_rocm",
+            RESULTS_DIR / "benchmark_results_rocm",
             extra_env={},
             overrides=overrides
         )
 
     # 3. AITER Attention Run
-    if get_benchmark_output_file(model, "benchmark_results_aiter", tag).exists():
+    if get_benchmark_output_file(model, RESULTS_DIR / "benchmark_results_aiter", tag).exists():
         log(f"SKIP {model} [AITER-Attn] (Result exists)")
     else:
         restart_cluster()
         run_bench_set(
             model,
             "AITER-Attn",
-            "benchmark_results_aiter",
+            RESULTS_DIR / "benchmark_results_aiter",
             extra_env={"VLLM_ROCM_USE_AITER": "1"},
             overrides=overrides
         )
@@ -311,12 +319,12 @@ def print_summary():
             tag = name_part.lstrip("_")
             tags.add(tag)
             
-        for p in Path("benchmark_results_rocm").glob(f"{prefix}*_throughput.json"):
+        for p in (RESULTS_DIR / "benchmark_results_rocm").glob(f"{prefix}*_throughput.json"):
             name_part = p.name[len(prefix):-len("_throughput.json")]
             tag = name_part.lstrip("_")
             tags.add(tag)
             
-        for p in Path("benchmark_results_aiter").glob(f"{prefix}*_throughput.json"):
+        for p in (RESULTS_DIR / "benchmark_results_aiter").glob(f"{prefix}*_throughput.json"):
             name_part = p.name[len(prefix):-len("_throughput.json")]
             tag = name_part.lstrip("_")
             tags.add(tag)
@@ -340,7 +348,7 @@ def print_summary():
             
             # ROCm
             try:
-                p2 = Path("benchmark_results_rocm") / f"{prefix}{tag_suffix}_throughput.json"
+                p2 = (RESULTS_DIR / "benchmark_results_rocm") / f"{prefix}{tag_suffix}_throughput.json"
                 if p2.exists():
                     d2 = json.loads(p2.read_text())
                     val2 = f"{d2.get('tokens_per_second', 0):.1f}"
@@ -350,7 +358,7 @@ def print_summary():
 
             # AITER
             try:
-                p3 = Path("benchmark_results_aiter") / f"{prefix}{tag_suffix}_throughput.json"
+                p3 = (RESULTS_DIR / "benchmark_results_aiter") / f"{prefix}{tag_suffix}_throughput.json"
                 if p3.exists():
                     d3 = json.loads(p3.read_text())
                     val3 = f"{d3.get('tokens_per_second', 0):.1f}"

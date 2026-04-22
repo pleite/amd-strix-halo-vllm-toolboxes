@@ -625,6 +625,12 @@
                 sel.appendChild(opt);
             });
 
+            // Dynamically hide Ethernet/Thunderbolt toggles if no data is found
+            const hasEth = rawRuns.some(r => r.network === "Ethernet");
+            const hasUsb = rawRuns.some(r => r.tag === "usb");
+            if (!hasEth) $('toggleTP2Eth').parentElement.style.display = 'none';
+            if (!hasUsb) $('toggleTP2Usb').parentElement.style.display = 'none';
+
             $('searchInput').addEventListener('input', e => { state.search = e.target.value.toLowerCase(); render(); });
             sel.addEventListener('change', e => { state.quant = e.target.value; render(); });
 

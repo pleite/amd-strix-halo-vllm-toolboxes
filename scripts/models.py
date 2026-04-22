@@ -3,7 +3,9 @@ MODEL_TABLE = {
     # MAD uses 131k tokens. We scale to 32k for 32GB VRAM safety.
     "meta-llama/Meta-Llama-3.1-8B-Instruct": {
         "trust_remote": False,
-        "valid_tp": [1, 2]
+        "valid_tp": [1, 2],
+        "max_num_seqs": "64",
+        "max_tokens": "32768"
     },
     
     "google/gemma-4-26B-A4B-it": {
@@ -38,34 +40,28 @@ MODEL_TABLE = {
         "trust_remote": True,
         "valid_tp": [1], 
         "enforce_eager": True, 
-        "env": {"VLLM_USE_TRITON_AWQ": "1"} # Fixes "Unsupported Hardware" error
+        "env": {"VLLM_USE_TRITON_AWQ": "1"}
     },  
 
     "cyankiwi/Qwen3.5-122B-A10B-AWQ-4bit": {
         "trust_remote": True,
         "valid_tp": [1,2], # Too big for single GPU
         "enforce_eager": True, 
-        "env": {"VLLM_USE_TRITON_AWQ": "1"} # Fixes "Unsupported Hardware" error
+        "env": {"VLLM_USE_TRITON_AWQ": "1"} 
     },
 
     "cyankiwi/Qwen3.5-122B-A10B-AWQ-8bit": {
         "trust_remote": True,
         "valid_tp": [2], # Too big for single GPU
         "enforce_eager": True, 
-        "env": {"VLLM_USE_TRITON_AWQ": "1"} # Fixes "Unsupported Hardware" error
-    },
-
-    "zai-org/GLM-4.7-Flash": {
-        "trust_remote": True,
-        "enforce_eager": False, 
-        "valid_tp": [1, 2]
+        "env": {"VLLM_USE_TRITON_AWQ": "1"} 
     },
 
     "cyankiwi/MiniMax-M2.7-AWQ-4bit": {
         "trust_remote": True,
         "valid_tp": [2],
         "enforce_eager": False,
-        "env": {"VLLM_USE_TRITON_AWQ": "1"} # Fixes "Unsupported Hardware" error
+        "env": {"VLLM_USE_TRITON_AWQ": "1"} 
     },
 
 }
