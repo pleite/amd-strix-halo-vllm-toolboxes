@@ -31,7 +31,7 @@ RUN python -m pip install --upgrade pip wheel packaging "setuptools<80.0.0"
 ARG TORCH_ROCM_VERSION=2.13.0a0+rocm7.14.0a20260608
 RUN python -m pip install \
   --index-url https://rocm.nightlies.amd.com/v2-staging/gfx1151/ \
-  --pre torch torchaudio torchvision && \
+  --pre "torch==${TORCH_ROCM_VERSION}" torch torchaudio torchvision && \
   (find /opt/venv -type f -name "*.so" -exec strip -s {} + 2>/dev/null || true) && \
   rm -rf /root/.cache/pip
 
