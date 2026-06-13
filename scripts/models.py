@@ -5,7 +5,11 @@ MODEL_TABLE = {
         "trust_remote": False,
         "valid_tp": [1, 2],
         "max_num_seqs": "64",
-        "max_tokens": "32768"
+        "max_tokens": "32768",
+        "extra_flags": [
+            "--enable-auto-tool-choice",
+            "--tool-call-parser", "llama3_json",
+        ]
     },
     
     "google/gemma-4-26B-A4B-it": {
@@ -13,7 +17,12 @@ MODEL_TABLE = {
         "enforce_eager": False,
         "valid_tp": [1, 2],
         "max_num_seqs": "64",
-        "max_tokens": "32768"
+        "max_tokens": "32768",
+        "extra_flags": [
+            "--enable-auto-tool-choice",
+            "--tool-call-parser", "gemma4",
+            "--reasoning-parser", "gemma4",
+        ]
     },
 
     "google/gemma-4-31B-it": {
@@ -21,7 +30,12 @@ MODEL_TABLE = {
         "enforce_eager": False,
         "valid_tp": [1, 2],
         "max_num_seqs": "64",
-        "max_tokens": "32768"
+        "max_tokens": "32768",
+        "extra_flags": [
+            "--enable-auto-tool-choice",
+            "--tool-call-parser", "gemma4",
+            "--reasoning-parser", "gemma4",
+        ]
     },
     # 2. GPT-OSS 20B (MXFP4)
     # MAD Row 0 uses 8192. We match this exactly.
@@ -29,21 +43,36 @@ MODEL_TABLE = {
         "trust_remote": True,
         "valid_tp": [1, 2],
         "max_num_seqs": "64",
-        "max_tokens": "8192"
+        "max_tokens": "8192",
+        "extra_flags": [
+            "--enable-auto-tool-choice",
+            "--tool-call-parser", "openai",
+            "--reasoning-parser", "openai_gptoss",
+        ]
     },
     
     "openai/gpt-oss-120b": {
         "trust_remote": True,
         "valid_tp": [1],
         "max_num_seqs": "64",
-        "max_tokens": "8192"
+        "max_tokens": "8192",
+        "extra_flags": [
+            "--enable-auto-tool-choice",
+            "--tool-call-parser", "openai",
+            "--reasoning-parser", "openai_gptoss",
+        ]
     },
 
     "Qwen/Qwen3.6-35B-A3B": {
         "trust_remote": True,
         "valid_tp": [1],
         "max_num_seqs": "64",
-        "max_tokens": "16384"
+        "max_tokens": "16384",
+        "extra_flags": [
+            "--enable-auto-tool-choice",
+            "--tool-call-parser", "qwen3_coder",
+            "--reasoning-parser", "qwen3",
+        ]
     },
 
     "cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit": {
@@ -52,7 +81,12 @@ MODEL_TABLE = {
         "enforce_eager": True, 
         "env": {"VLLM_USE_TRITON_AWQ": "1"},
         "max_num_seqs": "64",
-        "max_tokens": "16384"
+        "max_tokens": "16384",
+        "extra_flags": [
+            "--enable-auto-tool-choice",
+            "--tool-call-parser", "qwen3_coder",
+            "--reasoning-parser", "qwen3",
+        ]
     },  
 
     "cyankiwi/Qwen3.5-122B-A10B-AWQ-4bit": {
@@ -61,7 +95,12 @@ MODEL_TABLE = {
         "enforce_eager": True, 
         "env": {"VLLM_USE_TRITON_AWQ": "1"},
         "max_num_seqs": "64",
-        "max_tokens": "16384"
+        "max_tokens": "16384",
+        "extra_flags": [
+            "--enable-auto-tool-choice",
+            "--tool-call-parser", "qwen3_coder",
+            "--reasoning-parser", "qwen3",
+        ]
     },
 
     "cyankiwi/Qwen3.5-122B-A10B-AWQ-8bit": {
@@ -70,7 +109,12 @@ MODEL_TABLE = {
         "enforce_eager": True, 
         "env": {"VLLM_USE_TRITON_AWQ": "1"},
         "max_num_seqs": "64",
-        "max_tokens": "16384"
+        "max_tokens": "16384",
+        "extra_flags": [
+            "--enable-auto-tool-choice",
+            "--tool-call-parser", "qwen3_coder",
+            "--reasoning-parser", "qwen3",
+        ]
     },
 
     "cyankiwi/MiniMax-M2.7-AWQ-4bit": {
@@ -79,7 +123,12 @@ MODEL_TABLE = {
         "enforce_eager": False,
         "env": {"VLLM_USE_TRITON_AWQ": "1"},
         "max_num_seqs": "64",
-        "max_tokens": "16384"
+        "max_tokens": "16384",
+        "extra_flags": [
+            "--enable-auto-tool-choice",
+            "--tool-call-parser", "minimax_m2",
+            "--reasoning-parser", "deepseek_r1",
+        ]
     },
 
 }
