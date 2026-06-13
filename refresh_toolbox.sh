@@ -5,23 +5,23 @@ set -e
 TOOLBOX_NAME="vllm"
 IMAGE_REPO="docker.io/kyuz0/vllm-therock-gfx1151"
 
-# --- Channel selection (stable / latest) ---
+# --- Channel selection (latest / dev) ---
 resolve_channel() {
     local arg="${1:-}"
     case "$arg" in
-        stable)  echo "stable" ;;
         latest)  echo "latest" ;;
+        dev)     echo "dev" ;;
         "")
             # Interactive menu
             echo "" >&2
             echo "Which image channel do you want?" >&2
-            echo "  1) stable  — Last verified working build (recommended)" >&2
-            echo "  2) latest  — Absolute latest build (may be unstable)" >&2
+            echo "  1) latest  — Last verified working build (recommended)" >&2
+            echo "  2) dev     — Absolute latest build (may be unstable)" >&2
             echo "" >&2
             read -rp "Choice [1]: " choice
             case "${choice:-1}" in
-                1|stable)  echo "stable" ;;
-                2|latest)  echo "latest" ;;
+                1|latest)  echo "latest" ;;
+                2|dev)     echo "dev" ;;
                 *)
                     echo "Invalid choice: $choice" >&2
                     exit 1
@@ -29,9 +29,9 @@ resolve_channel() {
             esac
             ;;
         *)
-            echo "Usage: $0 [stable|latest]" >&2
-            echo "  stable  — Pull the last verified working build (default)" >&2
-            echo "  latest  — Pull the absolute latest build" >&2
+            echo "Usage: $0 [latest|dev]" >&2
+            echo "  latest  — Pull the last verified working build (default)" >&2
+            echo "  dev     — Pull the absolute latest build" >&2
             exit 1
             ;;
     esac

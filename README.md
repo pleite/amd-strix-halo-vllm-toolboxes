@@ -68,8 +68,8 @@ The `kyuz0/vllm-therock-gfx1151` image is available in two channels:
 
 | Tag | Description |
 | :--- | :--- |
-| **`:stable`** | Last verified working build. **Recommended for most users.** |
-| **`:latest`** | Absolute latest build. May contain upstream regressions. |
+| **`:latest`** | Last verified working build. **Recommended for most users.** |
+| **`:dev`**    | Absolute latest build. May contain upstream regressions. |
 
 The image can be used both as:
 
@@ -84,12 +84,12 @@ The image can be used both as:
 **Recommended:** Use the included `refresh_toolbox.sh` script. It pulls the image and creates the toolbox with the correct parameters:
 
 ```bash
-# Interactive — prompts you to choose stable (default) or latest
+# Interactive — prompts you to choose latest (default) or dev
 ./refresh_toolbox.sh
 
 # Or specify directly:
-./refresh_toolbox.sh stable   # verified working build
-./refresh_toolbox.sh latest   # bleeding edge
+./refresh_toolbox.sh latest   # verified working build
+./refresh_toolbox.sh dev      # bleeding edge
 ```
 
 > **InfiniBand / RDMA Support:** The script automatically detects if a fast InfiniBand link is active (checks `/dev/infiniband`). If found, it correctly sets up the container to expose these devices, enabling high-performance clustering.
@@ -100,7 +100,7 @@ To manually create a toolbox that exposes the GPU and relaxes seccomp:
 
 ```bash
 toolbox create vllm \
-  --image docker.io/kyuz0/vllm-therock-gfx1151:stable \
+  --image docker.io/kyuz0/vllm-therock-gfx1151:latest \
   -- --device /dev/dri --device /dev/kfd \
   --group-add video --group-add render --security-opt seccomp=unconfined
 ```
@@ -131,7 +131,7 @@ Ubuntu’s toolbox package still breaks GPU access, so use Distrobox instead:
 
 ```bash
 distrobox create -n vllm \
-  --image docker.io/kyuz0/vllm-therock-gfx1151:stable \
+  --image docker.io/kyuz0/vllm-therock-gfx1151:latest \
   --additional-flags "--device /dev/kfd --device /dev/dri --group-add video --group-add render --security-opt seccomp=unconfined"
 
 distrobox enter vllm

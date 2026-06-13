@@ -335,6 +335,7 @@ except Exception:
     # accesses `layer.tp_size` which crashes AWQ MoE models (Qwen3.5 etc.)
     # that fall back from AWQMoeMarlin to the WNA16 path.
     # Fix: use get_tp_group().world_size which is always available.
+    # https://github.com/vllm-project/vllm/issues/45403
     p_moe_wna16 = Path('vllm/model_executor/layers/quantization/moe_wna16.py')
     if p_moe_wna16.exists():
         txt = p_moe_wna16.read_text()
