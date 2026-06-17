@@ -11,7 +11,25 @@ MODEL_TABLE = {
             "--tool-call-parser", "llama3_json",
         ]
     },
-    
+
+    # EXPERIMENTAL — FP8 (W8A8) via @leonyurko's Strix Halo Triton kernels (#67).
+    # The "env" VLLM_STRIX_FP8_TRITON=1 opts this model into the patched fp8_triton
+    # path (default-off; without it FP8 uses stock torch._scaled_mm). The kernels
+    # require VLLM_ROCM_USE_AITER=0 + enforce_eager. Correctness-verified on gfx1151,
+    # not yet benchmarked.
+    "RedHatAI/Meta-Llama-3.1-8B-Instruct-FP8-dynamic": {
+        "trust_remote": False,
+        "valid_tp": [1],
+        "enforce_eager": True,
+        "env": {"VLLM_STRIX_FP8_TRITON": "1", "VLLM_ROCM_USE_AITER": "0"},
+        "max_num_seqs": "64",
+        "max_tokens": "32768",
+        "extra_flags": [
+            "--enable-auto-tool-choice",
+            "--tool-call-parser", "llama3_json",
+        ]
+    },
+
     "google/gemma-4-26B-A4B-it": {
         "trust_remote": False,
         "enforce_eager": False,
