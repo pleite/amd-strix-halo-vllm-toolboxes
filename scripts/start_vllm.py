@@ -113,9 +113,13 @@ def get_verified_config(model_id, tp_size, max_seqs):
         matches.sort(key=lambda x: (float(x["util"]), x["max_context_1_user"]), reverse=True)
         
         best = matches[0]
+        # Cap util to 0.90 max. Due to recent changes in vLLM/ROCm UMA
+        # available memory calculations (psutil.virtual_memory().available vs hipMemGetInfo),
+        # 0.95 often leads to OOM at startup on Strix Halo APUs.
+        util = float(best["util"])
         return {
             "ctx": best["max_context_1_user"],
-            "util": float(best["util"])
+            "util": min(0.90, util)
         }
         
     except Exception as e:
