@@ -1,5 +1,14 @@
 # Plan: DKMS + Userspace thunderbolt-ibverbs in the vLLM Toolbox
 
+> **Implementation status (in progress).** The scaffolding for this plan has
+> landed: `Dockerfile.tb-vllm-toolbox`, `scripts/build_tbnet_userspace.sh`,
+> `scripts/01-tbnet-env.sh`, and `scripts/02-dkms-build.sh`. The artifacts have
+> **not** been built or run on hardware yet (needs a Strix Halo GPU + USB4
+> link). See [tb-vllm-toolbox-recommendations.md](tb-vllm-toolbox-recommendations.md)
+> for the validation checklist and next steps, and
+> [ibverbs-changes-required.md](ibverbs-changes-required.md) for upstream
+> thunderbolt-ibverbs fixes to request in a follow-up session.
+
 ## Problem
 
 The current `kyuz0/vllm-therock-gfx1151` container runs vLLM with ROCm on Strix Halo

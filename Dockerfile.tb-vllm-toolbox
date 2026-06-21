@@ -1,0 +1,69 @@
+# syntax=docker/dockerfile:1
+#
+# Dockerfile.tb-vllm-toolbox
+# ==========================
+# Additive toolbox image that layers thunderbolt-ibverbs (tbnet) on top of the
+# battle-tested vLLM + ROCm Strix Halo image. The base image is NOT modified —
+# see the plan in docs/tb-vllm-toolbox-plan.md.
+#
+# What this image adds on top of kyuz0/vllm-therock-gfx1151:
+#   * /opt/tbnet/bin   — proto smoke-test binaries + usb4_rdma provider RPM
+#   * usb4_rdma libibverbs provider installed so `ibv_devices` enumerates
+#     the host's usb4_rdma* devices
+#   * DKMS + kernel build tooling and the thunderbolt-ibverbs DKMS source staged
+#     at /usr/src so the kernel module can be built at runtime against the host
+#     kernel (scripts/02-dkms-build.sh)
+#   * /etc/profile.d/01-tbnet-env.sh — tbnet env (TBNET_PATH, NCCL/RCCL defaults)
+#
+# Build (privileged so the runtime DKMS build can see the host /lib/modules;
+# podman is rootful by default which is what we want):
+#
+#   podman build -t tb-vllm-toolbox \
+#     -f Dockerfile.tb-vllm-toolbox .
+#
+# The kernel module is intentionally NOT compiled at build time — it must match
+# the running host kernel. Build + load it from the host (recommended) or run
+# scripts/02-dkms-build.sh inside the started toolbox with /lib/modules visible.
+
+ARG BASE_IMAGE=docker.io/kyuz0/vllm-therock-gfx1151:latest
+
+# thunderbolt-ibverbs source selection (override at build time as needed).
+ARG TBV_REPO=https://github.com/pleite/thunderbolt-ibverbs.git
+ARG TBV_REF=95c98aa4bc88a6ef3b992aa955e372573e09dce8
+# rdma-core tag the usb4_rdma provider is built against.
+ARG RDMA_CORE_TAG=v62.0
+
+FROM ${BASE_IMAGE} AS tb-vllm-toolbox
+
+ARG TBV_REPO
+ARG TBV_REF
+ARG RDMA_CORE_TAG
+
+ENV TBNET_PATH=/opt/tbnet
+
+# --- Build/runtime dependencies for tbnet userspace + DKMS -------------------
+# - dkms / kernel build tools: build the kernel module at runtime
+# - rdma-core-devel / libibverbs: build + run the usb4_rdma provider
+# - patchelf / pyelftools / docutils / openssl-devel / libnl3: rdma-core build
+RUN dnf install -y --setopt=install_weak_deps=False --nodocs \
+      dkms kmod make gcc gcc-c++ patch patchelf pkgconf \
+      rdma-core rdma-core-devel libibverbs libibverbs-utils libibverbs-devel \
+      libnl3-devel libudev-devel openssl-devel systemd-devel libcap-devel \
+      python3-docutils python3-pyelftools rpm-build cmake ninja-build tar \
+    && dnf clean all && rm -rf /var/cache/dnf/*
+
+# --- Build the tbnet userspace (proto smoke tests + usb4_rdma provider) ------
+COPY scripts/build_tbnet_userspace.sh /tmp/build_tbnet_userspace.sh
+RUN TBV_REPO="${TBV_REPO}" TBV_REF="${TBV_REF}" RDMA_CORE_TAG="${RDMA_CORE_TAG}" \
+      bash /tmp/build_tbnet_userspace.sh \
+    && rm -f /tmp/build_tbnet_userspace.sh \
+    && find /opt/tbnet/src -name '*.o' -delete 2>/dev/null || true
+
+# --- Install profile + helper scripts ---------------------------------------
+COPY scripts/01-tbnet-env.sh /etc/profile.d/01-tbnet-env.sh
+COPY scripts/02-dkms-build.sh /opt/tbnet/bin/tbnet-dkms-build
+RUN chmod 0644 /etc/profile.d/01-tbnet-env.sh \
+    && chmod 0755 /opt/tbnet/bin/tbnet-dkms-build \
+    && ln -sf /opt/tbnet/bin/tbnet-dkms-build /usr/local/bin/tbnet-dkms-build
+
+CMD ["/bin/bash"]
