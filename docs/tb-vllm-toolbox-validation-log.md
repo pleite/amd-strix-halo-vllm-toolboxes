@@ -36,7 +36,7 @@ toolbox create vllm-tbnet --image localhost/tb-vllm-toolbox:latest \
 | `proto-smoke` | ✅ PASS | `protocol header smoke OK` |
 | `reliability-smoke` | ✅ PASS | `reliability smoke OK` |
 | `identity-smoke` | ✅ PASS | `identity smoke OK` |
-| `config-smoke` | ❌ FAIL | Linker error: `clang: error: linker command failed with exit code 1` |
+| `config-smoke` | ✅ PASS | `config smoke OK` — fixed by adding `proto/identity.c` to link deps |
 | `tbnet-dkms-build` | ✅ Found | `/opt/tbnet/bin/tbnet-dkms-build` installed |
 | vLLM | ✅ Available | `vllm 0.22.1rc1.dev499+g470229c3` |
 | DKMS source | ✅ Staged | `/usr/src/thunderbolt-ibverbs-0.3.1/` |
