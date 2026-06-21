@@ -62,7 +62,7 @@ declare -A SMOKE_SOURCES=(
   [proto-smoke]=""
   [reliability-smoke]="proto/reliability.c"
   [identity-smoke]="proto/identity.c"
-  [config-smoke]="proto/config.c"
+  [config-smoke]="proto/config.c proto/identity.c"
 )
 
 build_smoke() {
