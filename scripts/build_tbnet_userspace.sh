@@ -105,6 +105,18 @@ if [ "$TBV_BUILD_PROVIDER" = "1" ]; then
   else
     warn "provider build failed — the container will rely on a host-installed provider"
   fi
+
+  # Always try to copy the .driver file for libibverbs auto-loading
+  # (the RPM may not install it, or it may be missing from the dist/ output)
+  if [ -f "$SRC_DIR/dist/usb4_rdma.driver" ]; then
+    cp "$SRC_DIR/dist/usb4_rdma.driver" "$BIN_DIR/"
+    log "staged usb4_rdma.driver"
+  elif [ -f "$SRC_DIR/providers/usb4_rdma/usb4_rdma.driver" ]; then
+    cp "$SRC_DIR/providers/usb4_rdma/usb4_rdma.driver" "$BIN_DIR/"
+    log "staged usb4_rdma.driver (from providers/)"
+  else
+    warn "usb4_rdma.driver not found — provider may not auto-load"
+  fi
 else
   log "Skipping provider build (TBV_BUILD_PROVIDER=$TBV_BUILD_PROVIDER)"
 fi
