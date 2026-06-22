@@ -30,7 +30,9 @@ mkdir -p $BUILD_DIR
 cd $BUILD_DIR
 echo "Configuring CMake for gfx1151..."
 # Ensure ibverbs headers are available for RCCL ibverbs transport
-dnf install -y libibverbs-devel rdma-core-devel libnl3-devel 2>/dev/null || true
+if ! dnf install -y libibverbs-devel rdma-core-devel libnl3-devel; then
+    echo "WARNING: ibverbs devel packages not installed -- ibverbs support may be unavailable" >&2
+fi
 # We explicitly set GPU_TARGETS to gfx1151 to override the default list.
 # We also set AMDGPU_TARGETS for standard rocm-cmake compliance.
 CXX=$ROCM_PATH/bin/hipcc cmake .. \

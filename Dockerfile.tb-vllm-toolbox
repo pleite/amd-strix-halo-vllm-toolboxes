@@ -67,7 +67,11 @@ RUN set -e; \
     GZ=/tmp/custom_libs/librccl.so.1.gz; \
     if [ -f "$GZ" ]; then \
       echo "Installing ibverbs-enabled librccl.so.1..."; \
-      ROCM_LIBDIR=$(find /opt/rocm -maxdepth 3 -name 'librccl.so.1' 2>/dev/null | head -n1 | xargs dirname 2>/dev/null || echo "/opt/rocm/lib"); \
+      ROCM_LIBDIR=$(find /opt/rocm -maxdepth 3 -name 'librccl.so.1' 2>/dev/null | head -n1 | xargs -r dirname 2>/dev/null); \
+      if [ -z "${ROCM_LIBDIR}" ]; then \
+        ROCM_LIBDIR="/opt/rocm/lib"; \
+        mkdir -p "${ROCM_LIBDIR}"; \
+      fi; \
       gunzip -c "$GZ" > "${ROCM_LIBDIR}/librccl.so.1"; \
       chmod 755 "${ROCM_LIBDIR}/librccl.so.1"; \
       ln -sf librccl.so.1 "${ROCM_LIBDIR}/librccl.so" 2>/dev/null || true; \
