@@ -57,7 +57,7 @@ COPY scripts/build_tbnet_userspace.sh /tmp/build_tbnet_userspace.sh
 RUN TBV_REPO="${TBV_REPO}" TBV_REF="${TBV_REF}" RDMA_CORE_TAG="${RDMA_CORE_TAG}" \
       bash /tmp/build_tbnet_userspace.sh \
     && rm -f /tmp/build_tbnet_userspace.sh \
-    && find /opt/tbnet/src -name '*.o' -delete 2>/dev/null || true
+    && { find /opt/tbnet/src -name '*.o' -delete 2>/dev/null || true; }
 
 # --- Install profile + helper scripts ---------------------------------------
 COPY scripts/01-tbnet-env.sh /etc/profile.d/01-tbnet-env.sh

@@ -1,0 +1,50 @@
+# thunderbolt-ibverbs modprobe configuration for Strix Halo
+#
+# Copy this file to /etc/modprobe.d/thunderbolt-ibverbs.conf and edit
+# the values below.
+#
+# See docs/tb-vllm-toolbox-recommendations.md for the full deployment
+# guide.
+#
+# ─── Required parameters (change these) ────────────────────────────
+#
+# <PEER-UUID>  → Thunderbolt UUID of the remote node (get via
+#                `tbv enumerate` or `cat /sys/bus/thunderbolt/devices/…/unique_id`)
+# <PSK>        → Pre-shared key (64 hex chars, generated with
+#                `openssl rand -hex 32`)
+#
+# ─── linux_perf parameters (Strix Halo recommended defaults) ──────
+#
+# Profile: linux_perf (recommended for vLLM TP=2 clustering)
+#
+#     profile=linux_perf \
+#     bind_services=1 \
+#     allocate_rings=1 \
+#     start_rings=1 \
+#     negotiate_native=1 \
+#     enable_tunnels=1 \
+#     register_verbs=1
+#
+# ─── peer_auth_acl (one line per peer) ─────────────────────────────
+#
+# Format: thunderbolt_ibverbs.peer_auth_acl=<uuid>=<psk>
+#
+# Example:
+#   thunderbolt_ibverbs.peer_auth_acl=00000000-0000-0000-0000-000000000001=a1b2c3d4e5f6...
+#
+# ─── Full configuration ────────────────────────────────────────────
+#
+
+# Module parameters for linux_perf profile on Strix Halo
+options thunderbolt_ibverbs \
+    profile=linux_perf \
+    bind_services=1 \
+    allocate_rings=1 \
+    start_rings=1 \
+    negotiate_native=1 \
+    enable_tunnels=1 \
+    register_verbs=1
+
+# Peer authentication ACLs — add one line per peer node
+# Uncomment and edit the line below with your peer's UUID and PSK
+#options thunderbolt_ibverbs peer_auth_acl=<PEER-UUID>=<PSK>
