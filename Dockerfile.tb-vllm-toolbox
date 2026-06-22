@@ -30,14 +30,11 @@ ARG BASE_IMAGE=docker.io/kyuz0/vllm-therock-gfx1151:latest
 # thunderbolt-ibverbs source selection (override at build time as needed).
 ARG TBV_REPO=https://github.com/pleite/thunderbolt-ibverbs.git
 ARG TBV_REF=29b0521ed37199637863dbed0477291e5018821f
-# rdma-core tag the usb4_rdma provider is built against.
-ARG RDMA_CORE_TAG=v62.0
 
 FROM ${BASE_IMAGE} AS tb-vllm-toolbox
 
 ARG TBV_REPO
 ARG TBV_REF
-ARG RDMA_CORE_TAG
 
 ENV TBNET_PATH=/opt/tbnet
 
@@ -54,10 +51,31 @@ RUN dnf install -y --setopt=install_weak_deps=False --nodocs \
 
 # --- Build the tbnet userspace (proto smoke tests + usb4_rdma provider) ------
 COPY scripts/build_tbnet_userspace.sh /tmp/build_tbnet_userspace.sh
-RUN TBV_REPO="${TBV_REPO}" TBV_REF="${TBV_REF}" RDMA_CORE_TAG="${RDMA_CORE_TAG}" \
+RUN set -e; \
+    RDMA_PKG_VER=$(rpm -q --qf '%{VERSION}' rdma-core 2>/dev/null | tr -d '\n'); \
+    echo "Detected rdma-core version: ${RDMA_PKG_VER}"; \
+    RDMA_CORE_TAG_DETECTED="v${RDMA_PKG_VER}"; \
+    echo "Using RDMA_CORE_TAG=${RDMA_CORE_TAG_DETECTED}"; \
+    TBV_REPO="${TBV_REPO}" TBV_REF="${TBV_REF}" RDMA_CORE_TAG="${RDMA_CORE_TAG_DETECTED}" \
       bash /tmp/build_tbnet_userspace.sh \
     && rm -f /tmp/build_tbnet_userspace.sh \
     && { find /opt/tbnet/src -name '*.o' -delete 2>/dev/null || true; }
+
+# --- Inject ibverbs-enabled custom RCCL (graceful no-op if absent) ---
+COPY custom_libs/ /tmp/custom_libs/
+RUN set -e; \
+    GZ=/tmp/custom_libs/librccl.so.1.gz; \
+    if [ -f "$GZ" ]; then \
+      echo "Installing ibverbs-enabled librccl.so.1..."; \
+      ROCM_LIBDIR=$(find /opt/rocm -maxdepth 3 -name 'librccl.so.1' 2>/dev/null | head -n1 | xargs dirname 2>/dev/null || echo "/opt/rocm/lib"); \
+      gunzip -c "$GZ" > "${ROCM_LIBDIR}/librccl.so.1"; \
+      chmod 755 "${ROCM_LIBDIR}/librccl.so.1"; \
+      ln -sf librccl.so.1 "${ROCM_LIBDIR}/librccl.so" 2>/dev/null || true; \
+      echo "Installed custom librccl.so.1 at ${ROCM_LIBDIR}"; \
+    else \
+      echo "No custom RCCL artifact -- keeping base image RCCL"; \
+    fi; \
+    rm -rf /tmp/custom_libs
 
 # --- Install profile + helper scripts ---------------------------------------
 COPY scripts/01-tbnet-env.sh /etc/profile.d/01-tbnet-env.sh

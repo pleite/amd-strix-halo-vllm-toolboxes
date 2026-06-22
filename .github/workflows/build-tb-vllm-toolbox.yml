@@ -15,6 +15,10 @@ on:
         description: "Also push to Docker Hub (default: false)"
         required: false
         default: "false"
+      rccl_run_id:
+        description: "Run ID of build-rccl to use (leave empty for latest)"
+        required: false
+        default: ""
 
 env:
   TB_IMAGE_REPO: ghcr.io/pleite/tb-vllm-toolbox
@@ -23,6 +27,9 @@ env:
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Put Docker on /mnt
         run: |
@@ -69,6 +76,15 @@ jobs:
         with:
           buildkitd-flags: --config /tmp/buildkitd.toml
 
+      - name: Download custom RCCL artifact
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: build-rccl.yml
+          name: librccl-gfx1151
+          run_id: ${{ github.event.inputs.rccl_run_id }}
+          path: custom_libs
+          if_no_artifact_found: warn
+
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
@@ -101,7 +117,6 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
           build-args: |
             TBV_REPO=https://github.com/pleite/thunderbolt-ibverbs.git
-            RDMA_CORE_TAG=v62.0
           provenance: false
           sbom: false
           cache-from: type=registry,ref=${{ env.TB_IMAGE_REPO }}:buildcache

@@ -29,6 +29,8 @@ cd $PROJECT_DIR
 mkdir -p $BUILD_DIR
 cd $BUILD_DIR
 echo "Configuring CMake for gfx1151..."
+# Ensure ibverbs headers are available for RCCL ibverbs transport
+dnf install -y libibverbs-devel rdma-core-devel libnl3-devel 2>/dev/null || true
 # We explicitly set GPU_TARGETS to gfx1151 to override the default list.
 # We also set AMDGPU_TARGETS for standard rocm-cmake compliance.
 CXX=$ROCM_PATH/bin/hipcc cmake .. \
@@ -40,7 +42,8 @@ CXX=$ROCM_PATH/bin/hipcc cmake .. \
     -DBUILD_TESTS=OFF \
     -DGENERATE_SYM_KERNELS=OFF \
     -DENABLE_AMDSMI=OFF \
-    -DCMAKE_BUILD_TYPE=Release
+    -DCMAKE_BUILD_TYPE=Release \
+    -DENABLE_RCCL_IBVERBS=ON
 # 3. Build
 echo "Building librccl.so..."
 make -j$(nproc)
