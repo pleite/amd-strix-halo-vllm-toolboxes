@@ -30,23 +30,35 @@ echo "Installing usb4_rdma provider into container: $CONTAINER"
 # The provider .so and .driver are staged inside the container image at $TBNET_PATH/bin/
 # during the build. We copy them from there into the proper libibverbs locations.
 
-# Copy provider .so
-podman exec "$CONTAINER" mkdir -p /usr/lib64/libibverbs /etc/libibverbs.d 2>/dev/null || true
-podman exec "$CONTAINER" cp "$TBNET_PATH/bin/libusb4_rdma-rdmav59.so" /usr/lib64/libibverbs/ 2>/dev/null || {
-    echo "ERROR: Cannot find libusb4_rdma-rdmav59.so in container at $TBNET_PATH/bin/"
+# Discover the staged provider .so by glob — the filename embeds the rdma-core
+# PABI version (e.g. libusb4_rdma-rdmav59.so) which can change across builds.
+so_name=$(podman exec "$CONTAINER" bash -c \
+  "ls ${TBNET_PATH}/bin/libusb4_rdma-*.so 2>/dev/null | head -1 | xargs -r basename")
+if [ -z "$so_name" ]; then
+    echo "ERROR: No libusb4_rdma-*.so found in container at ${TBNET_PATH}/bin/"
     echo "The file should have been staged during image build."
+    exit 1
+fi
+
+# Copy provider .so
+podman exec --user root "$CONTAINER" mkdir -p /usr/lib64/libibverbs /etc/libibverbs.d
+podman exec --user root "$CONTAINER" cp "${TBNET_PATH}/bin/${so_name}" /usr/lib64/libibverbs/ || {
+    echo "ERROR: Failed to copy ${so_name} into /usr/lib64/libibverbs/"
     exit 1
 }
 
-# Copy .driver file
-podman exec "$CONTAINER" cp "$TBNET_PATH/bin/usb4_rdma.driver" /etc/libibverbs.d/ 2>/dev/null || {
-    echo "WARNING: usb4_rdma.driver not found in container"
-    echo "Creating placeholder .driver file..."
-    podman exec "$CONTAINER" bash -c "echo usb4_rdma > /etc/libibverbs.d/usb4_rdma.driver"
+# Copy .driver file (libibverbs reads this to locate the provider at runtime)
+podman exec --user root "$CONTAINER" cp "${TBNET_PATH}/bin/usb4_rdma.driver" /etc/libibverbs.d/ 2>/dev/null || {
+    echo "WARNING: usb4_rdma.driver not found in container — creating from staged .so name"
+    # The .driver file format is: driver <library-base-name>
+    # Strip the -rdmavXX.so suffix to get the base name (e.g. libusb4_rdma).
+    lib_base="${so_name%-rdmav*.so}"
+    podman exec --user root "$CONTAINER" bash -c \
+      "printf 'driver %s\n' '${lib_base}' > /etc/libibverbs.d/usb4_rdma.driver"
 }
 
 # Run ldconfig inside the container
-podman exec "$CONTAINER" ldconfig 2>/dev/null || true
+podman exec --user root "$CONTAINER" ldconfig 2>/dev/null || true
 
 echo "Done. Verify with:"
 echo "  podman exec $CONTAINER ibv_devices"

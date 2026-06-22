@@ -56,8 +56,8 @@ The toolbox must be started with the host's `/lib/modules` visible:
 
 ```bash
 toolbox enter vllm-tbnet -- /bin/bash
-# or for podman:
-podman run --privileged -v /lib/modules:/lib/modules:ro localhost/tb-vllm-toolbox:latest
+# or for podman (read-write mount required — dkms install writes the built .ko back):
+podman run --privileged -v /lib/modules:/lib/modules:rw localhost/tb-vllm-toolbox:latest
 ```
 
 On the host, `kernel-devel-$(uname -r)` must be installed before running
@@ -142,5 +142,10 @@ export RCCL_IB_HCA=usb4_rdma0
   rdma-core v62.0) and Fedora 43's stock libibverbs (v58.0).
 - The build script falls back gracefully — the provider .so and .driver
   files are still staged in `/opt/tbnet/bin/`.
-- For a working setup, install the provider on the **host** instead of
-  inside the container.
+- Use `scripts/install-provider-into-container.sh` (from the host, with the
+  repo checked out) to inject the staged provider into the running container:
+  ```bash
+  bash scripts/install-provider-into-container.sh vllm-tbnet
+  ```
+- Alternatively, install the provider on the **host** instead of inside the
+  container.

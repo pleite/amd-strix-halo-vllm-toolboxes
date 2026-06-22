@@ -55,7 +55,7 @@ cp -a "$SRC_DIR/proto" "$INC_DIR/proto"
 #    config code paths.
 # ---------------------------------------------------------------------------
 CC="${CC:-gcc}"
-CFLAGS="-Wall -Wextra -std=c11 -O2 -I${SRC_DIR}"
+CFLAGS=(-Wall -Wextra -std=c11 -O2 "-I${SRC_DIR}")
 
 # smoke binary -> list of extra proto/*.c translation units it needs
 declare -A SMOKE_SOURCES=(
@@ -71,7 +71,7 @@ build_smoke() {
   local objs=()
   local f
   for f in $extra; do objs+=("${SRC_DIR}/${f}"); done
-  if "$CC" $CFLAGS -o "${BIN_DIR}/${name}" "$src" "${objs[@]}" 2>"${BIN_DIR}/${name}.log"; then
+  if "$CC" "${CFLAGS[@]}" -o "${BIN_DIR}/${name}" "$src" "${objs[@]}" 2>"${BIN_DIR}/${name}.log"; then
     log "built ${name}"
     rm -f "${BIN_DIR}/${name}.log"
   else
@@ -93,17 +93,50 @@ done
 # ---------------------------------------------------------------------------
 if [ "$TBV_BUILD_PROVIDER" = "1" ]; then
   log "Building usb4_rdma provider (rdma-core ${RDMA_CORE_TAG})"
+  # rpm is set below in the parent shell (not inside the subshell); the empty
+  # string here serves as the "no RPM built" sentinel for the .so staging step.
+  rpm=""
   if (cd "$SRC_DIR" && OUT_DIR="$SRC_DIR/dist" bash tools/ci/distro-package-rdma.sh fedora); then
     rpm=$(ls -1 "$SRC_DIR"/dist/usb4-rdma-provider-*.rpm 2>/dev/null | head -n1 || true)
     if [ -n "$rpm" ]; then
       cp "$rpm" "$BIN_DIR/"
-      dnf install -y "$rpm" || warn "provider RPM install failed — install on host instead"
-      log "installed provider: $(basename "$rpm")"
+      if dnf install -y "$rpm"; then
+        log "installed provider: $(basename "$rpm")"
+      else
+        warn "provider RPM install failed — install on host instead"
+      fi
     else
       warn "provider RPM not produced — falling back to host install"
     fi
   else
     warn "provider build failed — the container will rely on a host-installed provider"
+  fi
+
+  # Stage the provider .so for use by install-provider-into-container.sh.
+  # If the RPM installed cleanly the .so is already in the standard path; if
+  # install failed (PABI mismatch) extract it directly from the RPM archive.
+  so_file=$(ls -1 /usr/lib64/libibverbs/libusb4_rdma-*.so 2>/dev/null | head -n1 || true)
+  if [ -n "$so_file" ]; then
+    cp "$so_file" "$BIN_DIR/"
+    log "staged $(basename "$so_file")"
+  elif [ -n "$rpm" ] && command -v rpm2cpio >/dev/null 2>&1; then
+    extract_dir=$(mktemp -d)
+    # $rpm is an absolute path (under $SRC_DIR which is $TBNET_PATH/src) so it
+    # remains valid after the cd into $extract_dir below.
+    if (cd "$extract_dir" && rpm2cpio "$rpm" | cpio -idm --quiet 2>/dev/null); then
+      so_file=$(find "$extract_dir" -name 'libusb4_rdma-*.so' | head -n1 || true)
+      if [ -n "$so_file" ]; then
+        cp "$so_file" "$BIN_DIR/"
+        log "staged $(basename "$so_file") (extracted from RPM)"
+      else
+        warn "provider .so not found in RPM — install-provider-into-container.sh will not work"
+      fi
+    else
+      warn "failed to extract RPM — install-provider-into-container.sh will not work"
+    fi
+    rm -rf "$extract_dir"
+  else
+    warn "provider .so not staged — install-provider-into-container.sh will not work"
   fi
 
   # Always try to copy the .driver file for libibverbs auto-loading
