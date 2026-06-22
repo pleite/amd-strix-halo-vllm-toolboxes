@@ -1,3 +1,5 @@
 *.pyc
 __pycache__/
 settings.json
+custom_libs/*.gz
+custom_libs/*.so*

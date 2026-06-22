@@ -88,7 +88,7 @@ printf 'AMD STRIX HALO — vLLM Toolbox (gfx1151, ROCm via TheRock)\n'
 echo
 printf 'Machine: %s\n' "$MACHINE"
 printf 'GPU    : %s\n\n' "$GPU"
-printf 'Repo   : https://github.com/kyuz0/amd-strix-halo-vllm-toolboxes\n'
+printf 'Repo   : https://github.com/pleite/amd-strix-halo-vllm-toolboxes\n'
 printf 'Image  : docker.io/kyuz0/vllm-therock-gfx1151:latest\n\n'
 printf 'Included:\n'
 printf '  - %-16s → %s\n' "start-vllm (TUI)" "Interactive launcher: Model select, Multi-GPU & Cache handling"

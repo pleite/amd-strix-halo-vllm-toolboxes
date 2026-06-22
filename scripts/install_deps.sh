@@ -9,4 +9,5 @@ dnf -y install --setopt=install_weak_deps=False --nodocs \
   cmake ninja-build aria2c tar xz vim nano dialog \
   libdrm-devel zlib-devel openssl-devel pgrep \
   numactl-devel gperftools-libs iproute libibverbs-utils patch perftest ping iperf3 perfquery \
+  libibverbs-devel rdma-core-devel libnl3-devel \
   && dnf clean all && rm -rf /var/cache/dnf/*

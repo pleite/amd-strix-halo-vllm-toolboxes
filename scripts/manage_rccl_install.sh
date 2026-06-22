@@ -3,7 +3,7 @@ set -e
 # Configuration
 # Paths identified from your environment
 ROCM_LIB_PATH="/opt/rocm/lib/librccl.so.1.0"
-VENV_LIB_PATH="/opt/venv/lib/python3.13/site-packages/_rocm_sdk_libraries_gfx1151/lib/librccl.so.1"
+VENV_LIB_PATH="/opt/venv/lib/python3.12/site-packages/_rocm_sdk_libraries_gfx1151/lib/librccl.so.1"
 BACKUP_DIR="./rccl_backups_$(date +%Y%m%d_%H%M%S)"
 # Files to replace
 # We assume the new library is named 'librccl.so' or 'librccl.so.1' in the current directory or provided as arg

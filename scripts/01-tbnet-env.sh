@@ -23,3 +23,13 @@ export NCCL_IB_DISABLE="${NCCL_IB_DISABLE:-0}"
 export NCCL_NET_GDR_LEVEL="${NCCL_NET_GDR_LEVEL:-0}"
 export NCCL_IB_TIMEOUT="${NCCL_IB_TIMEOUT:-23}"
 export NCCL_IB_RETRY_CNT="${NCCL_IB_RETRY_CNT:-7}"
+
+# RCCL mirror vars (AMD RCCL 2.18+ uses RCCL_ prefix):
+export RCCL_IB_DISABLE="${RCCL_IB_DISABLE:-0}"
+export RCCL_NET_GDR_LEVEL="${RCCL_NET_GDR_LEVEL:-0}"
+export RCCL_IB_TIMEOUT="${RCCL_IB_TIMEOUT:-23}"
+export RCCL_IB_RETRY_CNT="${RCCL_IB_RETRY_CNT:-7}"
+# GPU-direct (dma-buf path, requires CONFIG_TBV_GPU_DIRECT kernel module).
+# To enable, override the exports above in your session or cluster launch script:
+#   export RCCL_NET_GDR_LEVEL=3
+#   export NCCL_NET_GDR_LEVEL=3

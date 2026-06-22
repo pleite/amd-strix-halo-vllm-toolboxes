@@ -25,7 +25,7 @@
 set -euo pipefail
 
 TBV_REPO="${TBV_REPO:-https://github.com/pleite/thunderbolt-ibverbs.git}"
-TBV_REF="${TBV_REF:-95c98aa4bc88a6ef3b992aa955e372573e09dce8}"
+TBV_REF="${TBV_REF:-29b0521ed37199637863dbed0477291e5018821f}"
 TBNET_PATH="${TBNET_PATH:-/opt/tbnet}"
 TBV_BUILD_PROVIDER="${TBV_BUILD_PROVIDER:-1}"
 export RDMA_CORE_TAG="${RDMA_CORE_TAG:-v62.0}"
