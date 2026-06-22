@@ -245,6 +245,37 @@ This toolbox supports high-performance clustering of multiple Strix Halo nodes u
 *   **Easy Setup:** `refresh_toolbox.sh` automatically detects and exposes RDMA devices.
 *   **Cluster Management:** Included `start-vllm-cluster` TUI for managing Ray and vLLM.
 
+### 7.1 Thunderbolt/USB4 RDMA (thunderbolt-ibverbs) — experimental
+
+In addition to a dedicated RoCE NIC, two Strix Halo nodes can be clustered over
+a direct **USB4/Thunderbolt** cable using
+[thunderbolt-ibverbs](https://github.com/pleite/thunderbolt-ibverbs), which
+emulates an InfiniBand RDMA verbs device (`usb4_rdma*`) over the Thunderbolt DMA
+rings. It plugs into the exact same `libibverbs` boundary the E810 occupies, so
+Ray and RCCL are unchanged.
+
+An additive toolbox image, **`Dockerfile.tb-vllm-toolbox`**, layers the
+`thunderbolt-ibverbs` userspace (the `usb4_rdma` provider + proto smoke tests)
+and DKMS tooling on top of the standard image without modifying the existing
+`Dockerfile`:
+
+```bash
+podman build -t tb-vllm-toolbox -f Dockerfile.tb-vllm-toolbox .
+```
+
+The kernel module is built/loaded on the **host** (kernel ≥ 6.14); the container
+only needs the provider so `ibv_devices` enumerates `usb4_rdma*`. As with RoCE,
+`refresh_toolbox.sh` auto-detects `/dev/infiniband` and adds the RDMA flags.
+
+> ⚠️ thunderbolt-ibverbs is a **research driver — buggy, insecure, not for
+> production.** Treat the link as trusted-LAN only and set `peer_auth_acl`.
+
+**Documentation:**
+* [tb-vllm-toolbox plan](docs/tb-vllm-toolbox-plan.md) — design / architecture.
+* [Recommendations, validation checklist & next steps](docs/tb-vllm-toolbox-recommendations.md).
+* [thunderbolt-ibverbs changes to request](docs/ibverbs-changes-required.md).
+* Upstream [vLLM-toolbox integration guide](https://github.com/pleite/thunderbolt-ibverbs/blob/main/docs/vllm-toolbox-integration.md).
+
 ## 8) AITER on Strix Halo Support Status
 
 This toolbox supports running **AITER Flash Attention** on Strix Halo (gfx1151). Normally, vLLM crashes on RDNA APUs if `VLLM_ROCM_USE_AITER=1` is enabled, because AITER attempts to JIT-compile CDNA-specific MoE (Mixture of Experts) and CustomOps assembly instructions that lack RDNA hardware support.
