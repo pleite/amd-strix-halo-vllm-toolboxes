@@ -1,0 +1,164 @@
+name: build-tb-vllm-toolbox
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag to publish (e.g. dev, 20260622)"
+        required: true
+        default: "dev"
+      push_to_ghcr:
+        description: "Push to GHCR (default: true)"
+        required: false
+        default: "true"
+      push_to_dockerhub:
+        description: "Also push to Docker Hub (default: false)"
+        required: false
+        default: "false"
+
+env:
+  TB_IMAGE_REPO: ghcr.io/pleite/tb-vllm-toolbox
+  DOCKER_BUILDKIT: "1"
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Put Docker on /mnt
+        run: |
+          set -eux
+          echo '{ "data-root": "/mnt/docker" }' | sudo tee /etc/docker/daemon.json
+          sudo systemctl stop docker
+          sudo rm -rf /var/lib/docker || true
+          sudo mkdir -p /mnt/docker
+          sudo systemctl start docker
+          docker info | grep "Docker Root Dir"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Free disk space
+        shell: bash
+        run: |
+          set -euxo pipefail
+          echo "Disk BEFORE:"; df -h
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc || true
+          sudo rm -rf /opt/hostedtoolcache/CodeQL /opt/hostedtoolcache/go || true
+          docker system prune -af || true
+          docker builder prune -af || true
+          sudo apt-get clean
+          sudo rm -rf /var/lib/apt/lists/*
+          sudo rm -rf /opt/hostedtoolcache
+          echo "Disk AFTER:"; df -h
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: BuildKit GC config (8GB cap)
+        run: |
+          cat > /tmp/buildkitd.toml <<'EOF'
+          [worker.oci]
+            gc = true
+            gckeepstorage = 8000
+          EOF
+
+      - name: Set up Buildx (with GC)
+        uses: docker/setup-buildx-action@v3
+        with:
+          buildkitd-flags: --config /tmp/buildkitd.toml
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.TB_IMAGE_REPO }}
+          tags: |
+            type=raw,value=${{ github.event.inputs.tag }}
+            type=sha
+            type=raw,value={{date 'YYYYMMDD-HHmmss'}}
+
+      - name: Build tb-vllm-toolbox image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile.tb-vllm-toolbox
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          build-args: |
+            TBV_REPO=https://github.com/pleite/thunderbolt-ibverbs.git
+            RDMA_CORE_TAG=v62.0
+          provenance: false
+          sbom: false
+          cache-from: type=registry,ref=${{ env.TB_IMAGE_REPO }}:buildcache
+          cache-to: type=registry,ref=${{ env.TB_IMAGE_REPO }}:buildcache,mode=min,image-manifest=true,oci-mediatypes=true
+
+      - name: Log in to GHCR
+        if: ${{ github.event.inputs.push_to_ghcr == 'true' }}
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub (optional)
+        if: ${{ github.event.inputs.push_to_dockerhub == 'true' }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Push to GHCR (with retries)
+        if: ${{ github.event.inputs.push_to_ghcr == 'true' }}
+        run: |
+          set -eux
+          TAGS="${{ steps.meta.outputs.tags }}"
+          for tag in $TAGS; do
+            for attempt in 1 2 3; do
+              echo "Pushing $tag to GHCR (attempt $attempt/3)..."
+              if docker push "$tag"; then
+                echo "✅ Pushed $tag to GHCR"
+                break
+              fi
+              if [ "$attempt" -eq 3 ]; then
+                echo "❌ Failed to push $tag to GHCR after 3 attempts"
+                exit 1
+              fi
+              echo "⏳ Retrying in 30s..."
+              sleep 30
+            done
+          done
+
+      - name: Push to Docker Hub (with retries)
+        if: ${{ github.event.inputs.push_to_dockerhub == 'true' }}
+        run: |
+          set -eux
+          TAGS="${{ steps.meta.outputs.tags }}"
+          DOCKERHUB_TAGS=$(echo "$TAGS" | sed 's|ghcr.io/pleite/tb-vllm-toolbox|docker.io/pleite/tb-vllm-toolbox|')
+          for tag in $DOCKERHUB_TAGS; do
+            for attempt in 1 2 3; do
+              echo "Pushing $tag to Docker Hub (attempt $attempt/3)..."
+              if docker push "$tag"; then
+                echo "✅ Pushed $tag to Docker Hub"
+                break
+              fi
+              if [ "$attempt" -eq 3 ]; then
+                echo "❌ Failed to push $tag to Docker Hub after 3 attempts"
+                exit 1
+              fi
+              echo "⏳ Retrying in 30s..."
+              sleep 30
+            done
+          done
+
+      - name: Prune buildx cache
+        if: always()
+        run: |
+          docker buildx prune -af --verbose --min-free-space 4gb || true

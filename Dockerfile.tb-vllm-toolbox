@@ -29,7 +29,7 @@ ARG BASE_IMAGE=docker.io/kyuz0/vllm-therock-gfx1151:latest
 
 # thunderbolt-ibverbs source selection (override at build time as needed).
 ARG TBV_REPO=https://github.com/pleite/thunderbolt-ibverbs.git
-ARG TBV_REF=95c98aa4bc88a6ef3b992aa955e372573e09dce8
+ARG TBV_REF=29b0521ed37199637863dbed0477291e5018821f
 # rdma-core tag the usb4_rdma provider is built against.
 ARG RDMA_CORE_TAG=v62.0
 
